@@ -132,7 +132,7 @@ class LlamaModel {
     func clear() {
         tokens.removeAll()
         temporaryInvalidCChars.removeAll()
-        llama_kv_cache_clear(context)
+        llama_kv_self_clear(context)
     }
 
     deinit {
