@@ -70,7 +70,7 @@ class LlamaModel {
     func `continue`() throws -> String {
         let newToken =  llama_sampler_sample(sampler, context, batch.n_tokens - 1)
 
-        if llama_token_is_eog(model, newToken) || generatedTokenAccount == n_len {
+        if llama_vocab_is_eog(llama_model_get_vocab(model), newToken) || generatedTokenAccount == n_len {
             temporaryInvalidCChars.removeAll()
             ended = true
             return ""
@@ -107,13 +107,13 @@ class LlamaModel {
         var length: Int32 = 8
         var piece = Array<CChar>(repeating: 0, count: Int(length))
 
-        let nTokens = llama_token_to_piece(model, token, &piece, length, 0, false)
+        let nTokens = llama_token_to_piece(llama_model_get_vocab(model), token, &piece, length, 0, false)
         if nTokens >= 0 {
             return Array(piece.prefix(Int(nTokens)))
         } else {
             length = -nTokens
             piece = Array<CChar>(repeating: 0, count: Int(length))
-            let nNewTokens = llama_token_to_piece(model, token, &piece, length, 0, false)
+            let nNewTokens = llama_token_to_piece(llama_model_get_vocab(model), token, &piece, length, 0, false)
             return Array(piece.prefix(Int(nNewTokens)))
         }
     }
@@ -124,7 +124,7 @@ class LlamaModel {
         
         return Array(unsafeUninitializedCapacity: n_tokens) { buffer, initializedCount in
             initializedCount = Int(
-                llama_tokenize(model, text, Int32(utf8Count), buffer.baseAddress, Int32(n_tokens), addBos, false)
+                llama_tokenize(llama_model_get_vocab(model), text, Int32(utf8Count), buffer.baseAddress, Int32(n_tokens), addBos, false)
             )
         }
     }
