@@ -45,7 +45,7 @@ public struct Prompt {
         [INST]<<SYS>>
         \(systemPrompt)
         <</SYS>>
-        \(history.suffix(Configuration.historySize).map { $0.llamaPrompt }.joined())
+        \(history.map { $0.llamaPrompt }.joined())
         [/INST]
         [INST]
         \(userMessage)
@@ -57,7 +57,7 @@ public struct Prompt {
         let prompt = """
         <|start_header_id|>system<|end_header_id|>\(systemPrompt)<|eot_id|>
         
-        \(history.suffix(Configuration.historySize).map { $0.llama3Prompt }.joined())
+        \(history.map { $0.llama3Prompt }.joined())
         
         <|start_header_id|>user<|end_header_id|>\(userMessage)<|eot_id|>
         <|start_header_id|>assistant<|end_header_id|>
@@ -75,7 +75,7 @@ public struct Prompt {
 
     private func encodeChatMLPrompt() -> String {
         """
-        \(history.suffix(Configuration.historySize).map { $0.chatMLPrompt }.joined())
+        \(history.map { $0.chatMLPrompt }.joined())
         "<|im_start|>user"
         \(userMessage)<|im_end|>
         <|im_start|>assistant
@@ -85,7 +85,7 @@ public struct Prompt {
     private func encodeMistralPrompt() -> String {
         """
         <s>
-        \(history.suffix(Configuration.historySize).map { $0.mistralPrompt }.joined())
+        \(history.map { $0.mistralPrompt }.joined())
         </s>
         [INST] \(userMessage) [/INST]
         """
@@ -94,7 +94,7 @@ public struct Prompt {
     private func encodePhiPrompt() -> String {
         """
         \(systemPrompt)
-        \(history.suffix(Configuration.historySize).map { $0.phiPrompt }.joined())
+        \(history.map { $0.phiPrompt }.joined())
         <|user|>
         \(userMessage)
         <|end|>
@@ -107,7 +107,7 @@ public struct Prompt {
         <start_of_turn>system
         \(systemPrompt)
         <end_of_turn>
-        \(history.suffix(Configuration.historySize).map { $0.gemmaPrompt }.joined())
+        \(history.map { $0.gemmaPrompt }.joined())
         <start_of_turn>user
         \(userMessage)
         <end_of_turn>
@@ -119,7 +119,7 @@ public struct Prompt {
         """
         <|im_start|>system
         \(systemPrompt)<|im_end|>
-        \(history.suffix(Configuration.historySize).map { $0.qwenPrompt }.joined(separator: "\n"))
+        \(history.map { $0.qwenPrompt }.joined(separator: "\n"))
         <|im_start|>user
         \(userMessage)<|im_end|>
         <|im_start|>assistant

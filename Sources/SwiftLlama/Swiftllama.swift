@@ -40,8 +40,27 @@ public class SwiftLlama {
             } else {
                 session?.lastPrompt = prompt
             }
-            return session?.sessionPrompt ?? prompt
+            // trim history to configuration.historyLimit
+            if var sessionPrompt = session?.sessionPrompt {
+                if configuration.historyLimit >= 0 {
+                    let trimmed = Array(sessionPrompt.history.suffix(configuration.historyLimit))
+                    sessionPrompt = Prompt(type: sessionPrompt.type,
+                                           systemPrompt: sessionPrompt.systemPrompt,
+                                           userMessage: sessionPrompt.userMessage,
+                                           history: trimmed)
+                }
+                return sessionPrompt
+            }
+            return prompt
         } else {
+            // trim provided prompt history when session is disabled as well
+            if configuration.historyLimit >= 0 {
+                let trimmed = Array(prompt.history.suffix(configuration.historyLimit))
+                return Prompt(type: prompt.type,
+                              systemPrompt: prompt.systemPrompt,
+                              userMessage: prompt.userMessage,
+                              history: trimmed)
+            }
             return prompt
         }
     }

@@ -2,7 +2,7 @@ import Foundation
 import llama
 
 public struct Configuration {
-    static let historySize = 5
+    public let historyLimit: Int
     public let seed: Int
     public let topK: Int
     public let topP: Float
@@ -22,7 +22,8 @@ public struct Configuration {
                 stopSequence: String? = nil,
                 maxTokenCount: Int = 1024,
                 stopTokens: [String] = [],
-                debugLogTokens: Bool = false) {
+                debugLogTokens: Bool = false,
+                historyLimit: Int = 5) {
         self.seed = seed
         self.topK = topK
         self.topP = topP
@@ -32,6 +33,7 @@ public struct Configuration {
         self.maxTokenCount = maxTokenCount
         self.stopTokens = stopTokens
         self.debugLogTokens = debugLogTokens
+        self.historyLimit = max(0, historyLimit)
     }
 }
 
