@@ -2,7 +2,6 @@ import Foundation
 import llama
 
 public struct Configuration {
-    public let historyLimit: Int
     public let seed: Int
     public let topK: Int
     public let topP: Float
@@ -12,7 +11,8 @@ public struct Configuration {
     public let batchSize: Int
     public let stopTokens: [String]
     public let debugLogTokens: Bool
-
+    public let historyLimit: Int
+    
     public init(seed: Int = 1234,
                 topK: Int = 40,
                 topP: Float = 0.9,
