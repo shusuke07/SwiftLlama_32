@@ -9,6 +9,7 @@ public struct Prompt {
         case mistral
         case phi
         case gemma
+        case qwen
     }
 
     public let type: `Type`
@@ -35,6 +36,7 @@ public struct Prompt {
         case .mistral: encodeMistralPrompt()
         case .phi: encodePhiPrompt()
         case .gemma: encodeGemmaPrompt()
+        case .qwen: encodeQwenPrompt()
         }
     }
 
@@ -110,6 +112,17 @@ public struct Prompt {
         \(userMessage)
         <end_of_turn>
         <start_of_turn>model
+        """
+    }
+
+    private func encodeQwenPrompt() -> String {
+        """
+        <|im_start|>system
+        \(systemPrompt)<|im_end|>
+        \(history.suffix(Configuration.historySize).map { $0.qwenPrompt }.joined(separator: "\n"))
+        <|im_start|>user
+        \(userMessage)<|im_end|>
+        <|im_start|>assistant
         """
     }
 }

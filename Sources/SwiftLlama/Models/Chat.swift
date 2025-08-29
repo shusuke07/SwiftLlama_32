@@ -62,4 +62,13 @@ extension Chat {
         """
     }
 
+    var qwenPrompt: String {
+        """
+        <|im_start|>user
+        \(user)<|im_end|>
+        <|im_start|>assistant
+        \(bot)<|im_end|>
+        """
+    }
+
 }
