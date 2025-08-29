@@ -56,19 +56,9 @@ class LlamaModel {
         temporaryInvalidCChars = []
         batch.clear()
         if configuration.debugLogTokens {
-            let vocab = llama_model_get_vocab(model)
             let tokenPieces: [String] = tokens.map { t in
-                var len: Int32 = 32
-                var buf = Array<CChar>(repeating: 0, count: Int(len))
-                let n = llama_token_to_piece(vocab, t, &buf, len, 0, false)
-                if n >= 0 {
-                    return String(cString: buf)
-                } else {
-                    len = -n
-                    buf = Array<CChar>(repeating: 0, count: Int(len))
-                    let n2 = llama_token_to_piece(vocab, t, &buf, len, 0, false)
-                    return String(cString: buf.prefix(Int(max(0, n2))))
-                }
+                let bytes = tokenToCChars(token: t)
+                return String(validating: bytes + [0], as: UTF8.self) ?? ""
             }
             print("[SwiftLlama][init tokens] count=\(tokens.count)")
             for (i, t) in tokens.enumerated() {
@@ -91,19 +81,8 @@ class LlamaModel {
     func `continue`() throws -> String {
         let newToken =  llama_sampler_sample(sampler, context, batch.n_tokens - 1)
         if configuration.debugLogTokens {
-            let vocab = llama_model_get_vocab(model)
-            var len: Int32 = 32
-            var buf = Array<CChar>(repeating: 0, count: Int(len))
-            let n = llama_token_to_piece(vocab, newToken, &buf, len, 0, false)
-            let piece: String
-            if n >= 0 {
-                piece = String(cString: buf)
-            } else {
-                len = -n
-                buf = Array<CChar>(repeating: 0, count: Int(len))
-                let n2 = llama_token_to_piece(vocab, newToken, &buf, len, 0, false)
-                piece = String(cString: buf.prefix(Int(max(0, n2))))
-            }
+            let bytes = tokenToCChars(token: newToken)
+            let piece = String(validating: bytes + [0], as: UTF8.self) ?? ""
             print("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
         }
 
