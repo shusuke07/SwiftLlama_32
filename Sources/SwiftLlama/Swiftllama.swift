@@ -120,43 +120,41 @@ public class SwiftLlama {
             output(delta)
             return false
         }
-        generatedTokenCache += delta
 
-        // 1) 完全一致のストップトークンを探索（最も早い出現位置を優先）
-        if let (range, _) = configuration.stopTokens
-            .compactMap({ token -> (Range<String.Index>, String)? in
-                if let r = generatedTokenCache.range(of: token) { return (r, token) }
-                return nil
-            })
-            .min(by: { $0.0.lowerBound < $1.0.lowerBound }) {
-            let outputCandidate = String(generatedTokenCache[..<range.lowerBound])
-            if !outputCandidate.isEmpty { output(outputCandidate) }
-            generatedTokenCache = ""
-            return true
+        let maxLen = maxLengthOfStopToken
+        guard maxLen > 0 else {
+            output(delta)
+            return false
         }
 
-        // 2) 未検出の場合、末尾に残すべき最長のプレフィックス一致長を計算
-        let maxLen = maxLengthOfStopToken
-        let text = generatedTokenCache
-        let textCount = text.count
-        let maxCheck = min(textCount, maxLen)
-        var keepLength = 0
-        if maxCheck > 0 {
-            for l in 1...maxCheck {
-                let start = text.index(text.endIndex, offsetBy: -l)
-                let suffix = text[start...]
-                if configuration.stopTokens.contains(where: { $0.hasPrefix(suffix) }) {
-                    keepLength = l
+        // 逐次（文字単位）処理で固定長ウィンドウを維持
+        for ch in delta {
+            // ウィンドウが満杯なら先頭を確定出力して追い出す
+            if generatedTokenCache.count == maxLen {
+                if let first = generatedTokenCache.first {
+                    output(String(first))
+                    generatedTokenCache.removeFirst()
                 }
             }
-        }
 
-        // 先頭側（確定出力分）を吐き出し、末尾の未確定部分だけ保持
-        let emitCount = max(0, generatedTokenCache.count - keepLength)
-        if emitCount > 0 {
-            let emit = String(generatedTokenCache.prefix(emitCount))
-            output(emit)
-            generatedTokenCache.removeFirst(emit.count)
+            // 新文字を追加
+            generatedTokenCache.append(ch)
+
+            // ウィンドウが満杯になってから検査開始
+            if generatedTokenCache.count == maxLen {
+                if let matchedLen = configuration.stopTokens
+                    .compactMap({ token in generatedTokenCache.hasSuffix(token) ? token.count : nil })
+                    .max() {
+                    // バッファ先頭〜トークン直前を出力し停止
+                    let keepCount = max(0, maxLen - matchedLen)
+                    if keepCount > 0 {
+                        let prefix = String(generatedTokenCache.prefix(keepCount))
+                        if !prefix.isEmpty { output(prefix) }
+                    }
+                    generatedTokenCache = ""
+                    return true
+                }
+            }
         }
         return false
     }
