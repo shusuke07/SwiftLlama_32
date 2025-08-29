@@ -11,6 +11,7 @@ public struct Configuration {
     public let maxTokenCount: Int
     public let batchSize: Int
     public let stopTokens: [String]
+    public let debugLogTokens: Bool
 
     public init(seed: Int = 1234,
                 topK: Int = 40,
@@ -20,7 +21,8 @@ public struct Configuration {
                 batchSize: Int = 2048,
                 stopSequence: String? = nil,
                 maxTokenCount: Int = 1024,
-                stopTokens: [String] = []) {
+                stopTokens: [String] = [],
+                debugLogTokens: Bool = false) {
         self.seed = seed
         self.topK = topK
         self.topP = topP
@@ -29,6 +31,7 @@ public struct Configuration {
         self.temperature = temperature
         self.maxTokenCount = maxTokenCount
         self.stopTokens = stopTokens
+        self.debugLogTokens = debugLogTokens
     }
 }
 

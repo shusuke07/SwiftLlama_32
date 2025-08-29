@@ -55,6 +55,27 @@ class LlamaModel {
         tokens = tokenize(text: prompt.prompt, addBos: true)
         temporaryInvalidCChars = []
         batch.clear()
+        if configuration.debugLogTokens {
+            let vocab = llama_model_get_vocab(model)
+            let tokenPieces: [String] = tokens.map { t in
+                var len: Int32 = 32
+                var buf = Array<CChar>(repeating: 0, count: Int(len))
+                let n = llama_token_to_piece(vocab, t, &buf, len, 0, false)
+                if n >= 0 {
+                    return String(cString: buf)
+                } else {
+                    len = -n
+                    buf = Array<CChar>(repeating: 0, count: Int(len))
+                    let n2 = llama_token_to_piece(vocab, t, &buf, len, 0, false)
+                    return String(cString: buf.prefix(Int(max(0, n2))))
+                }
+            }
+            print("[SwiftLlama][init tokens] count=\(tokens.count)")
+            for (i, t) in tokens.enumerated() {
+                let piece = i < tokenPieces.count ? tokenPieces[i] : ""
+                print("  [\(i)] id=\(t) piece=\(piece)")
+            }
+        }
 
         tokens.enumerated().forEach { index, token in
             batch.add(token: token, position: Int32(index), seqIDs: [0], logit: false)
@@ -69,6 +90,22 @@ class LlamaModel {
 
     func `continue`() throws -> String {
         let newToken =  llama_sampler_sample(sampler, context, batch.n_tokens - 1)
+        if configuration.debugLogTokens {
+            let vocab = llama_model_get_vocab(model)
+            var len: Int32 = 32
+            var buf = Array<CChar>(repeating: 0, count: Int(len))
+            let n = llama_token_to_piece(vocab, newToken, &buf, len, 0, false)
+            let piece: String
+            if n >= 0 {
+                piece = String(cString: buf)
+            } else {
+                len = -n
+                buf = Array<CChar>(repeating: 0, count: Int(len))
+                let n2 = llama_token_to_piece(vocab, newToken, &buf, len, 0, false)
+                piece = String(cString: buf.prefix(Int(max(0, n2))))
+            }
+            print("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
+        }
 
         if llama_vocab_is_eog(llama_model_get_vocab(model), newToken) || generatedTokenAccount == n_len {
             temporaryInvalidCChars.removeAll()
