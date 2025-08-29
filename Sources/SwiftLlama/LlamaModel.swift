@@ -1,5 +1,6 @@
 import Foundation
 import llama
+import os
 
 class LlamaModel {
     private let model: Model
@@ -12,6 +13,7 @@ class LlamaModel {
     private var generatedTokenAccount: Int32 = 0
     private var ended = false
     private let n_len: Int32 = 1024
+    private let logger = Logger(subsystem: "SwiftLlama", category: "LlamaModel")
 
     var shouldContinue: Bool {
         generatedTokenAccount < configuration.maxTokenCount && !ended
@@ -61,9 +63,11 @@ class LlamaModel {
                 return String(validating: bytes + [0], as: UTF8.self) ?? ""
             }
             print("[SwiftLlama][init tokens] count=\(tokens.count)")
+            logger.info("[SwiftLlama][init tokens] count=\(self.tokens.count)")
             for (i, t) in tokens.enumerated() {
                 let piece = i < tokenPieces.count ? tokenPieces[i] : ""
                 print("  [\(i)] id=\(t) piece=\(piece)")
+                logger.debug("  [\(i)] id=\(t) piece=\(piece)")
             }
         }
 
@@ -84,6 +88,7 @@ class LlamaModel {
             let bytes = tokenToCChars(token: newToken)
             let piece = String(validating: bytes + [0], as: UTF8.self) ?? ""
             print("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
+            logger.debug("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
         }
 
         if llama_vocab_is_eog(llama_model_get_vocab(model), newToken) || generatedTokenAccount == n_len {
