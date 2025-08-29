@@ -81,12 +81,14 @@ public class SwiftLlama {
             generatedTokenCache = ""
         }
         defer { model.clear() }
+        var finishedEarly = false
         do {
             try model.start(for: prompt)
             while model.shouldContinue {
                 var delta = try model.continue()
                 if contentStarted { // remove the prefix empty spaces
                     if needToStop(after: delta, output: output) {
+                        finishedEarly = true
                         finish()
                         break
                     }
@@ -95,38 +97,66 @@ public class SwiftLlama {
                     if !delta.isEmpty {
                         contentStarted = true
                         if needToStop(after: delta, output: output) {
+                            finishedEarly = true
                             finish()
                             break
                         }
                     }
                 }
             }
-            finaliseOutput()
         } catch {
+            // no-op; finalization happens after do-catch
+        }
+        if !finishedEarly {
             finaliseOutput()
+        } else {
+            generatedTokenCache = ""
         }
     }
 
     /// Handling logic of StopToken
     private func needToStop(after delta: String, output: (String) -> Void) -> Bool {
-        guard maxLengthOfStopToken > 0 else {
+        guard !configuration.stopTokens.isEmpty else {
             output(delta)
             return false
         }
         generatedTokenCache += delta
-        if generatedTokenCache.count >= maxLengthOfStopToken * 2 {
-            if let stopToken = configuration.stopTokens.first(where: { generatedTokenCache.contains($0) }),
-               let index = generatedTokenCache.range(of: stopToken) {
-                let outputCandidate = String(generatedTokenCache[..<index.lowerBound])
-                output(outputCandidate)
-                generatedTokenCache = ""
-                return true
-            } else { // no stop token generated
-                let outputCandidate = String(generatedTokenCache.prefix(maxLengthOfStopToken))
-                generatedTokenCache.removeFirst(outputCandidate.count)
-                output(outputCandidate)
-                return false
+
+        // 1) 完全一致のストップトークンを探索（最も早い出現位置を優先）
+        if let (range, _) = configuration.stopTokens
+            .compactMap({ token -> (Range<String.Index>, String)? in
+                if let r = generatedTokenCache.range(of: token) { return (r, token) }
+                return nil
+            })
+            .min(by: { $0.0.lowerBound < $1.0.lowerBound }) {
+            let outputCandidate = String(generatedTokenCache[..<range.lowerBound])
+            if !outputCandidate.isEmpty { output(outputCandidate) }
+            generatedTokenCache = ""
+            return true
+        }
+
+        // 2) 未検出の場合、末尾に残すべき最長のプレフィックス一致長を計算
+        let maxLen = maxLengthOfStopToken
+        let text = generatedTokenCache
+        let textCount = text.count
+        let maxCheck = min(textCount, maxLen)
+        var keepLength = 0
+        if maxCheck > 0 {
+            for l in 1...maxCheck {
+                let start = text.index(text.endIndex, offsetBy: -l)
+                let suffix = text[start...]
+                if configuration.stopTokens.contains(where: { $0.hasPrefix(suffix) }) {
+                    keepLength = l
+                }
             }
+        }
+
+        // 先頭側（確定出力分）を吐き出し、末尾の未確定部分だけ保持
+        let emitCount = max(0, generatedTokenCache.count - keepLength)
+        if emitCount > 0 {
+            let emit = String(generatedTokenCache.prefix(emitCount))
+            output(emit)
+            generatedTokenCache.removeFirst(emit.count)
         }
         return false
     }
