@@ -99,7 +99,9 @@ class LlamaModel {
 
 
         let newTokenCChars = tokenToCChars(token: newToken)
-        temporaryInvalidCChars.append(contentsOf: newTokenCChars)
+        // NUL(0x00) を生成直後に除去してから蓄積
+        let sanitizedCChars = newTokenCChars.filter { $0 != 0 }
+        temporaryInvalidCChars.append(contentsOf: sanitizedCChars)
 
         let newTokenStr: String
         if let validString = String(validating: temporaryInvalidCChars + [0], as: UTF8.self) {
