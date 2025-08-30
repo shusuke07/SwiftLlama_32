@@ -30,7 +30,9 @@ public extension StopToken {
     static var qwen: [String] {
         [
             "<|im_end|>",
-            "<|im_end|>\n"
+            "<|im_end|>\n",
+            "<|im_start|>",
+            "<|im_start|>\n",
         ]
     }
 }
