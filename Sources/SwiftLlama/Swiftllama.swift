@@ -76,6 +76,10 @@ public class SwiftLlama {
             configuration.stopTokens.forEach {
                 generatedTokenCache = generatedTokenCache.replacingOccurrences(of: $0, with: "")
             }
+            // NUL を最終出力前に除去
+            if !generatedTokenCache.isEmpty {
+                generatedTokenCache = generatedTokenCache.replacingOccurrences(of: "\u{0000}", with: "")
+            }
             output(generatedTokenCache)
             finish()
             generatedTokenCache = ""
@@ -86,6 +90,10 @@ public class SwiftLlama {
             try model.start(for: prompt)
             while model.shouldContinue {
                 var delta = try model.continue()
+                // 受信直後に NUL を除去
+                if !delta.isEmpty {
+                    delta = delta.replacingOccurrences(of: "\u{0000}", with: "")
+                }
                 if contentStarted { // remove the prefix empty spaces
                     if needToStop(after: delta, output: output) {
                         finishedEarly = true
