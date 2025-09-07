@@ -27,21 +27,36 @@ class LlamaModel {
         #if targetEnvironment(simulator)
         model_params.n_gpu_layers = 0
         #endif
-        guard let model = llama_load_model_from_file(path, model_params) else {
+        // モデル読み込み
+        guard let loadedModel = llama_load_model_from_file(path, model_params) else {
+            // 初期化失敗時でもバックエンドを解放
+            llama_backend_free()
             throw SwiftLlamaError.others("Cannot load model at path \(path)")
         }
-        self.model = model
-        guard let context = llama_new_context_with_model(model, configuration.contextParameters) else {
+        // コンテキスト作成
+        guard let createdContext = llama_new_context_with_model(loadedModel, configuration.contextParameters) else {
+            llama_free_model(loadedModel)
+            llama_backend_free()
             throw SwiftLlamaError.others("Cannot load model context")
         }
-        self.context = context
+        // 事前チェック（self 代入前に失敗時の解放を徹底）
+        let n_ctx = llama_n_ctx(createdContext)
+        let n_ctx_train = llama_n_ctx_train(loadedModel)
+        if n_ctx > n_ctx_train {
+            llama_free(createdContext)
+            llama_free_model(loadedModel)
+            llama_backend_free()
+            throw SwiftLlamaError.others("Model was trained on \(n_ctx_train) context but tokens \(n_ctx) specified")
+        }
+        // ここから self に反映
+        self.model = loadedModel
+        self.context = createdContext
         self.tokens = []
         self.batch = llama_batch_init(Int32(configuration.batchSize * max(1, configuration.historyLimit) * 2), 0, 1)
         self.sampler = llama_sampler_chain_init(llama_sampler_chain_default_params())
         llama_sampler_chain_add(sampler, llama_sampler_init_temp(configuration.temperature))
         llama_sampler_chain_add(sampler, llama_sampler_init_softmax())
         llama_sampler_chain_add(sampler, llama_sampler_init_dist(1234))
-        try checkContextLength(context: context, model: model)
     }
 
     private func checkContextLength(context: Context, model: Model) throws {
