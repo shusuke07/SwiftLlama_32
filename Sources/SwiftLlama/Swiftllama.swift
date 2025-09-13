@@ -89,6 +89,11 @@ public class SwiftLlama {
         do {
             try model.start(for: prompt)
             while model.shouldContinue {
+                if Task.isCancelled {
+                    finishedEarly = true
+                    finish()
+                    break
+                }
                 var delta = try model.continue()
                 // 受信直後に NUL を除去
                 if !delta.isEmpty {
@@ -171,7 +176,7 @@ public class SwiftLlama {
     public func start(for prompt: Prompt, sessionSupport: Bool = false) -> AsyncThrowingStream<String, Error> {
         let sessionPrompt = prepare(sessionSupport: sessionSupport, for: prompt)
         return .init { continuation in
-            Task {
+            let task = Task {
                 response(for: sessionPrompt) { [weak self] delta in
                     continuation.yield(delta)
                     self?.session?.response(delta: delta)
@@ -179,6 +184,10 @@ public class SwiftLlama {
                     continuation.finish()
                     self?.session?.endResponse()
                 }
+            }
+            continuation.onTermination = { [weak self] _ in
+                task.cancel()
+                self?.model.stop()
             }
         }
     }

@@ -174,6 +174,11 @@ class LlamaModel {
         llama_memory_clear(mem, true)
     }
 
+    /// 協調キャンセル用。次回ループ判定で停止させる。
+    func stop() {
+        ended = true
+    }
+
     deinit {
         llama_batch_free(batch)
         llama_free(context)
