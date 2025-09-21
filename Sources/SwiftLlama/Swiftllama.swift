@@ -185,9 +185,8 @@ public class SwiftLlama {
                     self?.session?.endResponse()
                 }
             }
-            continuation.onTermination = { [weak self] _ in
+            continuation.onTermination = { _ in
                 task.cancel()
-                self?.model.stop()
             }
         }
     }
