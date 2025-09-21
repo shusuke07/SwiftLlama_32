@@ -31,8 +31,6 @@ public extension StopToken {
         [
             "<|im_end|>",
             "<|im_end|>\n",
-            "<|im_start|>",
-            "<|im_start|>\n",
         ]
     }
 }
