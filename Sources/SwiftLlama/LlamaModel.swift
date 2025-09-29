@@ -77,11 +77,9 @@ class LlamaModel {
                 let bytes = tokenToCChars(token: t)
                 return String(validating: bytes + [0], as: UTF8.self) ?? ""
             }
-            print("[SwiftLlama][init tokens] count=\(tokens.count)")
             logger.info("[SwiftLlama][init tokens] count=\(self.tokens.count)")
             for (i, t) in tokens.enumerated() {
                 let piece = i < tokenPieces.count ? tokenPieces[i] : ""
-                print("  [\(i)] id=\(t) piece=\(piece)")
                 logger.debug("  [\(i)] id=\(t) piece=\(piece)")
             }
         }
@@ -102,7 +100,6 @@ class LlamaModel {
         if configuration.debugLogTokens {
             let bytes = tokenToCChars(token: newToken)
             let piece = String(validating: bytes + [0], as: UTF8.self) ?? ""
-            print("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
             logger.debug("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
         }
 
