@@ -23,14 +23,13 @@ public extension StopToken {
 
     static var chatML: [String] {
         [
-            "<|im_end|>"
+            "<|im_end|>",
         ]
     }
 
     static var qwen: [String] {
         [
             "<|im_end|>",
-            "<|im_end|>\n",
         ]
     }
 }
