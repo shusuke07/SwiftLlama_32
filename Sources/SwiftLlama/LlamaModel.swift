@@ -164,6 +164,32 @@ class LlamaModel {
         }
     }
 
+    /// 任意テキストのトークン数を返します。
+    /// - Parameters:
+    ///   - text: 計測対象テキスト
+    ///   - addBos: 先頭に BOS を付与するか（デフォルトは呼び出し側で決定）
+    /// - Returns: トークン数
+    func countTokens(text: String, addBos: Bool) -> Int {
+        let utf8Count = text.utf8.count
+        let n_tokens = utf8Count + (addBos ? 1 : 0) + 1
+        var tokenCount = 0
+        _ = Array<Token>(unsafeUninitializedCapacity: n_tokens) { buffer, initializedCount in
+            initializedCount = Int(
+                llama_tokenize(
+                    llama_model_get_vocab(model),
+                    text,
+                    Int32(utf8Count),
+                    buffer.baseAddress,
+                    Int32(n_tokens),
+                    addBos,
+                    false
+                )
+            )
+            tokenCount = initializedCount
+        }
+        return tokenCount
+    }
+
     func clear() {
         tokens.removeAll()
         temporaryInvalidCChars.removeAll()

@@ -30,6 +30,15 @@ public class SwiftLlama {
         self.configuration = modelConfiguration
     }
 
+    /// 任意テキストのトークン数を返します。
+    /// - Parameters:
+    ///   - text: 計測対象の文字列
+    ///   - addBos: 先頭に BOS を付与するか（デフォルト: true）
+    /// - Returns: トークン数
+    public func countTokens(of text: String, addBos: Bool = true) -> Int {
+        model.countTokens(text: text, addBos: addBos)
+    }
+
     private func prepare(sessionSupport: Bool, for prompt: Prompt) -> Prompt {
         contentStarted = false
         generatedTokenCache = ""
