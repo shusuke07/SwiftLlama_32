@@ -1,6 +1,7 @@
 import Foundation
 import llama
 import Combine
+import os
 
 public class SwiftLlama {
     private let model: LlamaModel
@@ -19,6 +20,7 @@ public class SwiftLlama {
         .init("")
     }()
     private var generatedTokenCache = ""
+    private var tokenDebugLogger: ((String) -> Void)?
 
     var maxLengthOfStopToken: Int {
         configuration.stopTokens.map { $0.count }.max() ?? 0
@@ -28,6 +30,11 @@ public class SwiftLlama {
                  modelConfiguration: Configuration = .init()) throws {
         self.model = try LlamaModel(path: modelPath, configuration: modelConfiguration)
         self.configuration = modelConfiguration
+    }
+
+    /// トークンデバッグログを呼び出し側へ中継するためのフック
+    public func setTokenDebugLogger(_ f: ((String) -> Void)?) {
+        self.tokenDebugLogger = f
     }
 
     /// 任意テキストのトークン数を返します。
@@ -80,7 +87,9 @@ public class SwiftLlama {
         }
     }
 
-    private func response(for prompt: Prompt, output: (String) -> Void, finish: () -> Void) {
+    private func response(for prompt: Prompt, output: (String) -> Void, finish: () -> Void, rid: String) {
+        let logger = os.Logger(subsystem: "SwiftLlama", category: "Response")
+        logger.info("[SwiftLlama][RESPONSE_BEGIN] rid=\(rid, privacy: .public)")
         func finaliseOutput() {
             configuration.stopTokens.forEach {
                 generatedTokenCache = generatedTokenCache.replacingOccurrences(of: $0, with: "")
@@ -96,6 +105,7 @@ public class SwiftLlama {
         defer { model.clear() }
         var finishedEarly = false
         do {
+            logger.info("[SwiftLlama][MODEL_START] rid=\(rid, privacy: .public)")
             try model.start(for: prompt)
             while model.shouldContinue {
                 if Task.isCancelled {
@@ -134,6 +144,7 @@ public class SwiftLlama {
         } else {
             generatedTokenCache = ""
         }
+        logger.info("[SwiftLlama][RESPONSE_END] rid=\(rid, privacy: .public)")
     }
 
     /// Handling logic of StopToken
@@ -184,17 +195,24 @@ public class SwiftLlama {
     @SwiftLlamaActor
     public func start(for prompt: Prompt, sessionSupport: Bool = false) -> AsyncThrowingStream<String, Error> {
         let sessionPrompt = prepare(sessionSupport: sessionSupport, for: prompt)
+        let rid = UUID().uuidString
+        let logger = os.Logger(subsystem: "SwiftLlama", category: "StartStream")
+        logger.info("[SwiftLlama][STREAM_BEGIN] rid=\(rid, privacy: .public) session=\(sessionSupport, privacy: .public)")
         return .init { continuation in
             let task = Task {
-                response(for: sessionPrompt) { [weak self] delta in
+                model.setDebugLogger(tokenDebugLogger)
+                response(for: sessionPrompt, output: { [weak self] delta in
+                    logger.debug("[SwiftLlama][STREAM_YIELD] rid=\(rid, privacy: .public) len=\(delta.utf8.count, privacy: .public)")
                     continuation.yield(delta)
                     self?.session?.response(delta: delta)
-                } finish: { [weak self] in
+                }, finish: { [weak self] in
+                    logger.info("[SwiftLlama][STREAM_END] rid=\(rid, privacy: .public)")
                     continuation.finish()
                     self?.session?.endResponse()
-                }
+                }, rid: rid)
             }
             continuation.onTermination = { _ in
+                logger.info("[SwiftLlama][STREAM_TERM] rid=\(rid, privacy: .public)")
                 task.cancel()
             }
         }
@@ -203,14 +221,15 @@ public class SwiftLlama {
     @SwiftLlamaActor
     public func start(for prompt: Prompt, sessionSupport: Bool = false) -> AnyPublisher<String, Error> {
         let sessionPrompt = prepare(sessionSupport: sessionSupport, for: prompt)
+        let rid = UUID().uuidString
         Task {
-            response(for: sessionPrompt) { delta in
+            response(for: sessionPrompt, output: { delta in
                 resultSubject.send(delta)
                 session?.response(delta: delta)
-            } finish: {
+            }, finish: {
                 resultSubject.send(completion: .finished)
                 session?.endResponse()
-            }
+            }, rid: rid)
         }
         return resultSubject.eraseToAnyPublisher()
     }

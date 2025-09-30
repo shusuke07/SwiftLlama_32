@@ -14,6 +14,7 @@ class LlamaModel {
     private var ended = false
     private let n_len: Int32 = 1024
     private let logger = Logger(subsystem: "SwiftLlama", category: "LlamaModel")
+    private var debugLog: ((String) -> Void)?
 
     var shouldContinue: Bool {
         generatedTokenAccount < configuration.maxTokenCount && !ended
@@ -67,6 +68,10 @@ class LlamaModel {
         }
     }
 
+    func setDebugLogger(_ f: ((String) -> Void)?) {
+        self.debugLog = f
+    }
+
     func start(for prompt: Prompt) throws {
         ended = false
         tokens = tokenize(text: prompt.prompt, addBos: true)
@@ -77,10 +82,10 @@ class LlamaModel {
                 let bytes = tokenToCChars(token: t)
                 return String(validating: bytes + [0], as: UTF8.self) ?? ""
             }
-            logger.info("[SwiftLlama][init tokens] count=\(self.tokens.count)")
+            debugLog?("LLM_TOKEN_INIT count=\(self.tokens.count)")
             for (i, t) in tokens.enumerated() {
                 let piece = i < tokenPieces.count ? tokenPieces[i] : ""
-                logger.debug("  [\(i)] id=\(t) piece=\(piece)")
+                debugLog?("LLM_TOKEN_INIT_ITEM index=\(i) id=\(t) piece=\(piece)")
             }
         }
 
@@ -100,7 +105,7 @@ class LlamaModel {
         if configuration.debugLogTokens {
             let bytes = tokenToCChars(token: newToken)
             let piece = String(validating: bytes + [0], as: UTF8.self) ?? ""
-            logger.debug("[SwiftLlama][gen token] id=\(newToken) piece=\(piece)")
+            debugLog?("LLM_TOKEN_GEN id=\(newToken) piece=\(piece)")
         }
 
         if llama_vocab_is_eog(llama_model_get_vocab(model), newToken) || generatedTokenAccount == n_len {
