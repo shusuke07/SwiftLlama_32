@@ -8,6 +8,7 @@ class LlamaModel {
     private let context: OpaquePointer
     private let sampler: UnsafeMutablePointer<llama_sampler>
     private var batch: Batch
+    private var batchCapacity: Int32
     private var tokens: [Token]
     private var temporaryInvalidCChars: [CChar] = []
     private var generatedTokenAccount: Int32 = 0
@@ -29,23 +30,29 @@ class LlamaModel {
         model_params.n_gpu_layers = 0
         #endif
         // モデル読み込み
-        guard let loadedModel = llama_load_model_from_file(path, model_params) else {
+        guard let loadedModel = llama_model_load_from_file(path, model_params) else {
             // 初期化失敗時でもバックエンドを解放
             llama_backend_free()
             throw SwiftLlamaError.others("Cannot load model at path \(path)")
         }
+        // デコーダ有無チェック（デコード不可モデルを早期に排除）
+        guard llama_model_has_decoder(loadedModel) else {
+            llama_model_free(loadedModel)
+            llama_backend_free()
+            throw SwiftLlamaError.others("Model does not have a decoder")
+        }
         // コンテキスト作成
-        guard let createdContext = llama_new_context_with_model(loadedModel, configuration.contextParameters) else {
-            llama_free_model(loadedModel)
+        guard let createdContext = llama_init_from_model(loadedModel, configuration.contextParameters) else {
+            llama_model_free(loadedModel)
             llama_backend_free()
             throw SwiftLlamaError.others("Cannot load model context")
         }
         // 事前チェック（self 代入前に失敗時の解放を徹底）
         let n_ctx = llama_n_ctx(createdContext)
-        let n_ctx_train = llama_n_ctx_train(loadedModel)
+        let n_ctx_train = llama_model_n_ctx_train(loadedModel)
         if n_ctx > n_ctx_train {
             llama_free(createdContext)
-            llama_free_model(loadedModel)
+            llama_model_free(loadedModel)
             llama_backend_free()
             throw SwiftLlamaError.others("Model was trained on \(n_ctx_train) context but tokens \(n_ctx) specified")
         }
@@ -53,11 +60,15 @@ class LlamaModel {
         self.model = loadedModel
         self.context = createdContext
         self.tokens = []
-        self.batch = llama_batch_init(Int32(configuration.batchSize * max(1, configuration.historyLimit) * 2), 0, 1)
+        let initialCapacity = Int32(configuration.batchSize * max(1, configuration.historyLimit) * 2)
+        self.batch = llama_batch_init(initialCapacity, 0, 1)
+        self.batchCapacity = initialCapacity
         self.sampler = llama_sampler_chain_init(llama_sampler_chain_default_params())
+        // 推奨構成: top-k -> top-p -> temp -> dist（最後に選択器）
+        llama_sampler_chain_add(sampler, llama_sampler_init_top_k(Int32(configuration.topK)))
+        llama_sampler_chain_add(sampler, llama_sampler_init_top_p(configuration.topP, 1))
         llama_sampler_chain_add(sampler, llama_sampler_init_temp(configuration.temperature))
-        llama_sampler_chain_add(sampler, llama_sampler_init_softmax())
-        llama_sampler_chain_add(sampler, llama_sampler_init_dist(1234))
+        llama_sampler_chain_add(sampler, llama_sampler_init_dist(UInt32(configuration.seed)))
     }
 
     private func checkContextLength(context: Context, model: Model) throws {
@@ -76,7 +87,14 @@ class LlamaModel {
         ended = false
         tokens = tokenize(text: prompt.prompt, addBos: true)
         temporaryInvalidCChars = []
-        batch.clear()
+        // 初回プロンプトに応じてバッチ容量を安全に確保し直す
+        if Int32(tokens.count) > batchCapacity {
+            llama_batch_free(batch)
+            batch = llama_batch_init(Int32(tokens.count), 0, 1)
+            batchCapacity = Int32(tokens.count)
+        } else {
+            batch.clear()
+        }
         if configuration.debugLogTokens {
             let tokenPieces: [String] = tokens.map { t in
                 let bytes = tokenToCChars(token: t)
@@ -160,13 +178,30 @@ class LlamaModel {
 
     private func tokenize(text: String, addBos: Bool) -> [Token] {
         let utf8Count = text.utf8.count
-        let n_tokens = utf8Count + (addBos ? 1 : 0) + 1
-        
-        return Array(unsafeUninitializedCapacity: n_tokens) { buffer, initializedCount in
-            initializedCount = Int(
-                llama_tokenize(llama_model_get_vocab(model), text, Int32(utf8Count), buffer.baseAddress, Int32(n_tokens), addBos, false)
-            )
+        let vocab = llama_model_get_vocab(model)
+        var need = llama_tokenize(vocab, text, Int32(utf8Count), nil, 0, addBos, false)
+        if need == 0 { return [] }
+        var capacity = need < 0 ? Int(-need) : Int(need)
+        if capacity <= 0 { capacity = max(utf8Count + 8, 8) }
+        var result: [Token] = []
+        var buf = UnsafeMutablePointer<llama_token>.allocate(capacity: capacity)
+        defer { buf.deallocate() }
+        var count = Int(llama_tokenize(vocab, text, Int32(utf8Count), buf, Int32(capacity), addBos, false))
+        if count < 0 {
+            let newCap = Int(-count)
+            buf.deallocate()
+            let newBuf = UnsafeMutablePointer<llama_token>.allocate(capacity: newCap)
+            defer { newBuf.deallocate() }
+            let ok = Int(llama_tokenize(vocab, text, Int32(utf8Count), newBuf, Int32(newCap), addBos, false))
+            if ok > 0 {
+                result = Array(UnsafeBufferPointer(start: newBuf, count: ok))
+            } else {
+                result = []
+            }
+            return result
         }
+        result = Array(UnsafeBufferPointer(start: buf, count: count))
+        return result
     }
 
     /// 任意テキストのトークン数を返します。
@@ -176,23 +211,10 @@ class LlamaModel {
     /// - Returns: トークン数
     func countTokens(text: String, addBos: Bool) -> Int {
         let utf8Count = text.utf8.count
-        let n_tokens = utf8Count + (addBos ? 1 : 0) + 1
-        var tokenCount = 0
-        _ = Array<Token>(unsafeUninitializedCapacity: n_tokens) { buffer, initializedCount in
-            initializedCount = Int(
-                llama_tokenize(
-                    llama_model_get_vocab(model),
-                    text,
-                    Int32(utf8Count),
-                    buffer.baseAddress,
-                    Int32(n_tokens),
-                    addBos,
-                    false
-                )
-            )
-            tokenCount = initializedCount
-        }
-        return tokenCount
+        let vocab = llama_model_get_vocab(model)
+        var need = llama_tokenize(vocab, text, Int32(utf8Count), nil, 0, addBos, false)
+        if need < 0 { return Int(-need) }
+        return Int(need)
     }
 
     func clear() {
@@ -210,7 +232,7 @@ class LlamaModel {
     deinit {
         llama_batch_free(batch)
         llama_free(context)
-        llama_free_model(model)
+        llama_model_free(model)
         llama_backend_free()
     }
 }
