@@ -27,7 +27,7 @@ public struct Prompt {
         self.history = history
     }
 
-    var prompt: String {
+    public var prompt: String {
         switch type {
         case .llama: encodeLlamaPrompt()
         case .llama3: encodeLlama3Prompt()
