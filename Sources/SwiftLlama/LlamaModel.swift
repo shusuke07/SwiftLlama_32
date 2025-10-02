@@ -50,6 +50,7 @@ class LlamaModel {
         // 事前チェック（self 代入前に失敗時の解放を徹底）
         let n_ctx = llama_n_ctx(createdContext)
         let n_ctx_train = llama_model_n_ctx_train(loadedModel)
+        logger.info("[SwiftLlama][CTX_INFO] requested=\(configuration.nCTX, privacy: .public) effective=\(n_ctx, privacy: .public) train_limit=\(n_ctx_train, privacy: .public)")
         if n_ctx > n_ctx_train {
             llama_free(createdContext)
             llama_model_free(loadedModel)
