@@ -13,7 +13,6 @@ class LlamaModel {
     private var temporaryInvalidCChars: [CChar] = []
     private var generatedTokenAccount: Int32 = 0
     private var ended = false
-    private let n_len: Int32 = 1024
     private let logger = Logger(subsystem: "SwiftLlama", category: "LlamaModel")
     private var debugLog: ((String) -> Void)?
 
@@ -127,7 +126,7 @@ class LlamaModel {
             debugLog?("LLM_TOKEN_GEN id=\(newToken) piece=\(piece)")
         }
 
-        if llama_vocab_is_eog(llama_model_get_vocab(model), newToken) || generatedTokenAccount == n_len {
+        if llama_vocab_is_eog(llama_model_get_vocab(model), newToken) {
             temporaryInvalidCChars.removeAll()
             ended = true
             return ""
