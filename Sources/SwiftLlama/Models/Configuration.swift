@@ -19,7 +19,6 @@ public struct Configuration {
                 nCTX: Int = 2048,
                 temperature: Float = 0.2,
                 batchSize: Int = 2048,
-                stopSequence: String? = nil,
                 maxTokenCount: Int = 1024,
                 stopTokens: [String] = [],
                 debugLogTokens: Bool = false,
