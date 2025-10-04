@@ -43,6 +43,7 @@ extension Configuration {
         params.n_ctx = max(8, UInt32(self.nCTX)) // minimum context size is 8
         params.n_threads = Int32(processorCount)
         params.n_threads_batch = Int32(processorCount)
+        params.n_batch = Int32(self.batchSize)
         return params
     }
 }

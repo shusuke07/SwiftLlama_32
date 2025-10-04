@@ -107,15 +107,24 @@ class LlamaModel {
             }
         }
 
-        tokens.enumerated().forEach { index, token in
-            batch.add(token: token, position: Int32(index), seqIDs: [0], logit: false)
+        let maxBatchSize = Int32(configuration.batchSize)
+        var processed = 0
+        while processed < tokens.count {
+            batch.clear()
+            let remaining = tokens.count - processed
+            let chunkSize = Int(min(Int32(remaining), maxBatchSize))
+            for i in 0..<chunkSize {
+                let globalIndex = processed + i
+                let token = tokens[globalIndex]
+                let isLastToken = (globalIndex == tokens.count - 1)
+                batch.add(token: token, position: Int32(globalIndex), seqIDs: [0], logit: isLastToken)
+            }
+            if llama_decode(context, batch) != 0 {
+                throw SwiftLlamaError.decodeError
+            }
+            processed += chunkSize
         }
-        batch.logits[Int(batch.n_tokens) - 1] = 1 // true
-
-        if llama_decode(context, batch) != 0 {
-            throw SwiftLlamaError.decodeError
-        }
-        generatedTokenAccount = batch.n_tokens
+        generatedTokenAccount = Int32(tokens.count)
     }
 
     func `continue`() throws -> String {

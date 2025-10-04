@@ -202,7 +202,7 @@ public class SwiftLlama {
             let task = Task {
                 model.setDebugLogger(tokenDebugLogger)
                 response(for: sessionPrompt, output: { [weak self] delta in
-                    logger.debug("[SwiftLlama][STREAM_YIELD] rid=\(rid, privacy: .public) len=\(delta.utf8.count, privacy: .public)")
+                    // logger.debug("[SwiftLlama][STREAM_YIELD] rid=\(rid, privacy: .public) len=\(delta.utf8.count, privacy: .public)")
                     continuation.yield(delta)
                     self?.session?.response(delta: delta)
                 }, finish: { [weak self] in
