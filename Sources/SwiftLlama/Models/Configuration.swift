@@ -44,6 +44,7 @@ extension Configuration {
         params.n_threads = Int32(processorCount)
         params.n_threads_batch = Int32(processorCount)
         params.n_batch = Int32(self.batchSize)
+        params.n_ubatch = Int32(self.batchSize)
         return params
     }
 }
