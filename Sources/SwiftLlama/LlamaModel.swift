@@ -110,7 +110,7 @@ class LlamaModel {
         // Use runtime-reported n_batch as the hard cap; fall back to config if needed
         let runtimeBatch = llama_n_batch(context)
         let maxBatchSize = runtimeBatch > 0 ? Int32(runtimeBatch) : Int32(configuration.batchSize)
-        logger.info("[SwiftLlama][BATCH_INFO] requested=\(configuration.batchSize, privacy: .public) runtime=\(runtimeBatch, privacy: .public)")
+        logger.info("[SwiftLlama][BATCH_INFO] requested=\(self.configuration.batchSize, privacy: .public) runtime=\(runtimeBatch, privacy: .public)")
         var processed = 0
         while processed < tokens.count {
             batch.clear()
