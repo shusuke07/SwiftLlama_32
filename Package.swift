@@ -6,9 +6,9 @@ let package = Package(
     name: "SwiftLlama",
     platforms: [
         .macOS(.v15),
-        .iOS(.v18),
+        .iOS(.v15),
         .watchOS(.v11),
-        .tvOS(.v18),
+        .tvOS(.v16.4),
         .visionOS(.v2)
     ],
     products: [
