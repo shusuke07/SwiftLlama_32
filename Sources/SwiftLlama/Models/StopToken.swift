@@ -35,7 +35,7 @@ public extension StopToken {
 
     static var gemma: [String] {
         [
-            "<end_of_turn>",
+            "<end_of_turn>","<|im_end|>"
         ]
     }
 }
