@@ -132,7 +132,7 @@ public class SwiftLlama {
                         let matchedStop = configuration.stopTokens.first(where: { token in delta.hasPrefix(token) })
                         let startsWithStop = (matchedStop != nil)
                         let snippet = String(delta.prefix(64))
-                        logger.info("[SwiftLlama][FIRST_DELTA] startsWithStop=\(startsWithStop, privacy: .public) token=\(matchedStop ?? \"\", privacy: .public) len=\(delta.utf8.count, privacy: .public) snippet=\(snippet, privacy: .public)")
+                        logger.info("[SwiftLlama][FIRST_DELTA] startsWithStop=\(startsWithStop, privacy: .public) token=\(matchedStop ?? "", privacy: .public) len=\(delta.utf8.count, privacy: .public) snippet=\(snippet, privacy: .public)")
                         if needToStop(after: delta, output: output) {
                             finishedEarly = true
                             finish()
