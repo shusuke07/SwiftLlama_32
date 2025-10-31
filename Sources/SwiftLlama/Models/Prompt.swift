@@ -120,11 +120,11 @@ public struct Prompt {
     private func encodeBakuPrompt() -> String {
         let historyPart = history.map { $0.bakuPrompt }.joined()
         let userCombined: String = {
-            if systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return userMessage
-            } else {
-                return "\(systemPrompt)\n\n\(userMessage)"
+            let sys = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !sys.isEmpty && history.isEmpty {
+                return "\(sys)\n\n\(userMessage)"
             }
+            return userMessage
         }()
         return """
         \(historyPart)
