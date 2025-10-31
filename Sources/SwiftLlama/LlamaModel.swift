@@ -85,6 +85,9 @@ class LlamaModel {
 
     func start(for prompt: Prompt) throws {
         ended = false
+        // proactively clear KV memory before starting a new request
+        let mem = llama_get_memory(context)
+        llama_memory_clear(mem, true)
         tokens = tokenize(text: prompt.prompt, addBos: true)
         temporaryInvalidCChars = []
         // 初回プロンプトに応じてバッチ容量を安全に確保し直す
