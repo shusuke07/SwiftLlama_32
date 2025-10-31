@@ -10,6 +10,7 @@ public struct Prompt {
         case phi
         case gemma
         case qwen
+        case baku
     }
 
     public let type: `Type`
@@ -37,6 +38,7 @@ public struct Prompt {
         case .phi: encodePhiPrompt()
         case .gemma: encodeGemmaPrompt()
         case .qwen: encodeQwenPrompt()
+        case .baku: encodeBakuPrompt()
         }
     }
 
@@ -110,6 +112,24 @@ public struct Prompt {
         \(history.map { $0.gemmaPrompt }.joined())
         <start_of_turn>user
         \(userMessage)
+        <end_of_turn>
+        <start_of_turn>model
+        """
+    }
+
+    private func encodeBakuPrompt() -> String {
+        let historyPart = history.map { $0.bakuPrompt }.joined()
+        let userCombined: String = {
+            if systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return userMessage
+            } else {
+                return "\(systemPrompt)\n\n\(userMessage)"
+            }
+        }()
+        return """
+        \(historyPart)
+        <start_of_turn>user
+        \(userCombined)
         <end_of_turn>
         <start_of_turn>model
         """
