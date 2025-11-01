@@ -25,8 +25,8 @@ let package = Package(
         .testTarget(name: "SwiftLlamaTests", dependencies: ["SwiftLlama"]),
         .binaryTarget(
             name: "LlamaFramework",
-            url: "https://github.com/ggerganov/llama.cpp/releases/download/b5046/llama-b5046-xcframework.zip",
-            checksum: "c19be78b5f00d8d29a25da41042cb7afa094cbf6280a225abe614b03b20029ab"
+            url: "https://github.com/ggml-org/llama.cpp/releases/download/b6912/llama-b6912-xcframework.zip",
+            checksum: "a3f5cc63abbc017629341d77fe05bed72972956dabb4be319f3fda93d163a611"
         )
     ]
 )
