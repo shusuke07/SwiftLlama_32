@@ -15,13 +15,12 @@ class LlamaModel {
     private var ended = false
     private let logger = Logger(subsystem: "SwiftLlama", category: "LlamaModel")
     private var debugLog: ((String) -> Void)?
-    private var loadProgressBox: ProgressHandlerBox?
 
     var shouldContinue: Bool {
         generatedTokenAccount < configuration.maxTokenCount && !ended
     }
 
-    init(path: String, configuration: Configuration = .init(), loadProgressHandler: ((Float) -> Bool)? = nil) throws {
+    init(path: String, configuration: Configuration = .init()) throws {
         self.configuration = configuration
         llama_backend_init()
         llama_numa_init(GGML_NUMA_STRATEGY_DISABLED)
@@ -29,19 +28,10 @@ class LlamaModel {
         #if targetEnvironment(simulator)
         model_params.n_gpu_layers = 0
         #endif
-        if let handler = loadProgressHandler {
-            let box = ProgressHandlerBox(handler: handler)
-            self.loadProgressBox = box
-            model_params.progress_callback_user_data = Unmanaged.passUnretained(box).toOpaque()
-            model_params.progress_callback = LlamaModel.progressTrampoline
-        }
         // モデル読み込み
         guard let loadedModel = llama_model_load_from_file(path, model_params) else {
             // 初期化失敗時でもバックエンドを解放
             llama_backend_free()
-            if let box = self.loadProgressBox, box.cancelled {
-                throw SwiftLlamaError.cancelled
-            }
             throw SwiftLlamaError.others("Cannot load model at path \(path)")
         }
         // デコーダ有無チェック（デコード不可モデルを早期に排除）
@@ -79,20 +69,6 @@ class LlamaModel {
         llama_sampler_chain_add(sampler, llama_sampler_init_top_p(configuration.topP, 1))
         llama_sampler_chain_add(sampler, llama_sampler_init_temp(configuration.temperature))
         llama_sampler_chain_add(sampler, llama_sampler_init_dist(UInt32(configuration.seed)))
-    }
-
-    private final class ProgressHandlerBox {
-        let handler: (Float) -> Bool
-        var cancelled: Bool = false
-        init(handler: @escaping (Float) -> Bool) { self.handler = handler }
-    }
-
-    private static let progressTrampoline: @convention(c) (Float, UnsafeMutableRawPointer?) -> Bool = { progress, userData in
-        guard let userData = userData else { return true }
-        let box = Unmanaged<ProgressHandlerBox>.fromOpaque(userData).takeUnretainedValue()
-        let shouldContinue = box.handler(progress)
-        if !shouldContinue { box.cancelled = true }
-        return shouldContinue
     }
 
     private func checkContextLength(context: Context, model: Model) throws {

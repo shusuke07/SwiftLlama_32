@@ -27,9 +27,8 @@ public class SwiftLlama {
     }
 
     public init(modelPath: String,
-                 modelConfiguration: Configuration = .init(),
-                 onModelLoadProgress: ((Float) -> Bool)? = nil) throws {
-        self.model = try LlamaModel(path: modelPath, configuration: modelConfiguration, loadProgressHandler: onModelLoadProgress)
+                 modelConfiguration: Configuration = .init()) throws {
+        self.model = try LlamaModel(path: modelPath, configuration: modelConfiguration)
         self.configuration = modelConfiguration
     }
 
