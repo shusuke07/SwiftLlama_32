@@ -41,7 +41,7 @@ public extension StopToken {
 
     static var baku: [String] {
         [
-            "<end_of_turn>", "<eos>"
+            "<end_of_turn>", "<eos>", "</start_of_turn>"
         ]
     }
 }
